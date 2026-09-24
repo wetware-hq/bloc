@@ -1,16 +1,16 @@
 # bloc
 
-**System card.** bloc is a local gate that screens agent-proposed nucleic-acid designs before synthesis or assembly. It accepts a structured design specification, not raw sequence files. The only object meant for human action is a short typed card. Tracking: [MCHU-63](https://linear.app/mchu001/issue/MCHU-63/bloc).
+**System card.** bloc is a local gate that screens proposed nucleic-acid designs before synthesis or assembly. It accepts a structured design specification, not raw sequence files. The only object meant for human action is a short typed card. Tracking: [MCHU-63](https://linear.app/mchu001/issue/MCHU-63/bloc).
 
-bloc evaluates whether a proposed construct may proceed toward ordering, assembly, or transformation under the stated biosafety level. One program performs plan review and molecule review. Policy is fixed by rule, not by narrative from the design tool.
+bloc evaluates whether a proposed construct may proceed toward ordering, assembly, or transformation under the stated biosafety level. One program performs plan review and molecule review. Policy is fixed by rule, not by upstream narrative.
 
 ---
 
 ## Clinical abstract
 
-Automated design tools can now propose genetic constructs quickly. The practical control point remains the moment someone orders DNA, assembles a plasmid, or introduces material into cells. bloc sits at that control point on a local machine.
+Automated design tools can propose genetic constructs quickly. The practical control point remains the moment someone orders DNA, assembles a plasmid, or introduces material into cells. bloc sits at that control point on a local machine.
 
-The session host or biosafety officer does not read a long model explanation. They read one card of seven lines or fewer:
+The session host or biosafety officer reads one card of seven lines or fewer, not a lengthy narrative report:
 
 ```
 BLOC     construct_id=…
@@ -40,7 +40,7 @@ The card is not a clinical diagnosis, a pathogen identification, a quantitative 
 
 Use bloc to require a typed verdict before a designed sequence moves toward synthesis. Use it to screen a design specification on a laptop during a Wetware session. Use the receipt so an identical plan and molecule receive the same decision later.
 
-Do not use bloc to replace IBBIS, SBRC, SecureDNA, or a commercial provider’s compliance program. Do not use it for customer identity, hosted sequence upload, or training predictive models on restricted corpora.
+bloc does not replace IBBIS, SBRC, SecureDNA, or a commercial provider’s compliance program. It is not a customer-identity product, a hosted sequence-upload service, or a corpus for training predictive models on restricted data.
 
 ---
 
@@ -48,10 +48,10 @@ Do not use bloc to replace IBBIS, SBRC, SecureDNA, or a commercial provider’s 
 
 ### System model
 
-A design agent emits a design specification only. The censor (`speccheck`) validates the plan. The suppressor (`screen`) evaluates the stitched molecule. A reducer assigns rubric and policy. The card and receipt are the user-facing outputs.
+Input is design specification JSON only. The censor (`speccheck`) validates the plan. The suppressor (`screen`) evaluates the stitched molecule. A reducer assigns rubric and policy. The card and receipt are the user-facing outputs.
 
 ```
-design agent
+design toolchain
     │  design specification (JSON)
     ▼
 CENSOR   bloc speccheck     refuse plan (exit 2)
@@ -69,13 +69,13 @@ Verdict + card + receipt
 RELEASE | HOLD | ESCALATE     exits 0 / 10 / 20
 ```
 
-The implementation is a single Rust binary with two subcommands. IBBIS commec supplies local homology and regulated-taxonomy screening; it does not set release policy. Automated design tools do not set release policy.
+The implementation is a single Rust binary with two subcommands. IBBIS commec supplies local homology and regulated-taxonomy screening; it does not set release policy. Upstream design tools do not set release policy.
 
 ### Inputs and outputs
 
-Input is design specification JSON at `spec_version` `0.1.0`. Unknown keys are rejected. Required fields: construct identifier, designer (agent and human), chassis, intended function, intended BSL, `not_for_synthesis`, and fragments each with role, alphabet, and sequence.
+Input is design specification JSON at `spec_version` `0.1.0`, validated by `schemas/design_spec.schema.json`. Unknown keys are rejected. Required fields: construct identifier, designer (agent and human), chassis, intended function, intended BSL, `not_for_synthesis`, and fragments each with role, alphabet, and sequence.
 
-Output is a Verdict JSON object and a card of at most seven lines. The policy word is authoritative; the physical line is either `do not order / assemble / transform` or `cleared for BSL-1 construct build`.
+Output is a Verdict JSON object (`schemas/verdict.schema.json`) and a card of at most seven lines. The policy word is authoritative; the physical line is either `do not order / assemble / transform` or `cleared for BSL-1 construct build`.
 
 ### Censor predicates
 
@@ -113,7 +113,7 @@ Canonical JSON uses sorted keys and no insignificant whitespace. Timestamp and c
 
 ### Repeat screening
 
-An exact `identity` match reuses the stored verdict without re-invoking design tools. On a miss, an optional metadata-only router may choose `rescreen`, `escalate`, or `drop`; it must not receive raw sequence and must not assign RELEASE. A generative tool may draft the ESCALATE brief; it must not set policy.
+An exact `identity` match reuses the stored verdict without re-running the suppressor. On a miss, an optional metadata-only router may choose `rescreen`, `escalate`, or `drop`; routers do not receive raw sequence and do not assign RELEASE.
 
 ### Commands
 
@@ -131,11 +131,11 @@ cargo run -- screen    fixtures/benign/gfp_spec.json
 cargo run -- screen    fixtures/synthetic/art_shape_spec.json
 ```
 
-Exit codes: `0` RELEASE, `10` HOLD, `20` ESCALATE, `2` schema or engine error. Integrations should branch on the numeric code, not on card wording.
+Exit codes: `0` RELEASE, `10` HOLD, `20` ESCALATE, `2` schema or engine error. Integrations branch on the numeric code, not on card wording.
 
 ### Failure and misuse
 
-Without commec, policy is ESCALATE, never RELEASE. Justification fields in the specification cause `speccheck` to refuse the plan. Order splitting across vendors is refused at the censor. A novel ART-like shape that commec does not flag still yields ESCALATE. Emitting raw FASTA outside the specification channel is a host integration error; see `AGENTS.md`.
+Without commec, policy is ESCALATE, never RELEASE. Justification fields in the specification cause `speccheck` to refuse the plan. Order splitting across vendors is refused at the censor. A novel ART-like shape that commec does not flag still yields ESCALATE. Sequence data outside the specification JSON channel is an integration defect; see `AGENTS.md`.
 
 Repository fixtures are benign or purely structural. Licensed sequences-of-concern from proficiency sets are not vendored here.
 
@@ -143,11 +143,11 @@ Repository fixtures are benign or purely structural. Licensed sequences-of-conce
 
 ## Operators
 
-**Clinician or session host:** Read the card. For HOLD or ESCALATE, do not order or transform material. For RELEASE, any BSL-1 build remains a deliberate human act.
+**Clinician or session host:** Read the card. For HOLD or ESCALATE, synthesis and transformation stop. For RELEASE, any BSL-1 build remains a deliberate human act.
 
-**Engineer:** Do not add numeric risk scores, model-based judges, proprietary threat lists, or Python on the thirty-mer path. Consume commec output; emit Flag, No Flag, or Undefined. Preserve fail-closed behavior.
+**Engineer:** The screening path stays in Rust on the thirty-mer window; commec supplies Flag / No Flag / Undefined; numeric scores and proprietary threat lists are out of scope. Preserve fail-closed behavior.
 
-**Design agent:** Follow `AGENTS.md` and emit specification JSON only.
+**Integrator:** Bind design tools per `AGENTS.md` and `schemas/design_spec.schema.json`; route all sequence output through `bloc screen`.
 
 ---
 

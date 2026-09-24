@@ -1,66 +1,48 @@
-# AGENTS.md
+# Design agent integration
 
-Binding contract for any automated agent that emits nucleic-acid designs in this repository. Emit a design specification JSON only. Do not place synthesis orders, print oligos, or author wet-laboratory protocols from raw sequence side channels. bloc censors the plan and suppresses the molecule; the agent does not self-certify release.
+Normative requirements for automated design tools that participate in this repository. Wording uses RFC 2119: **MUST**, **MUST NOT**, **SHOULD**.
 
-## Role
+## Scope
 
-The agent proposes constructs. Only bloc `screen` may return RELEASE.
+Design tools **MUST** emit [design specification](schemas/design_spec.schema.json) JSON (`spec_version` `0.1.0`) as the only sequence-bearing artifact toward synthesis. Raw FASTA, vendor carts, and wet-laboratory protocols **MUST NOT** bypass `bloc screen`. Release policy **MUST** come from `bloc screen`, not from the design tool.
 
-## bloc
+## Interface
 
-One Rust binary, two subcommands:
-
-- **Censor** (`bloc speccheck`) refuses a malformed or out-of-policy plan.
-- **Suppressor** (`bloc screen`) decides the molecule: `RELEASE`, `HOLD`, or `ESCALATE`.
-
-After a screen, the card is the user-facing object—not model logits, not a risk essay.
-
-## Sequence submission
+The host integration surface is the `inhibit_submit_design` tool (see `tools/agent/inhibit_submit_design.json`), which runs `bloc screen` on a specification file and returns a [verdict](schemas/verdict.schema.json) and card.
 
 ```
 inhibit_submit_design  →  design specification JSON  →  bloc screen  →  Verdict + card
 ```
 
-Raw FASTA outside this path is a protocol violation. If the host allows `construct.fa` and direct vendor API calls, treat that as a host defect; do not use it.
+Hosts **MUST NOT** expose parallel paths (for example, writing `construct.fa` and calling a synthesizer API) that skip screening.
 
-## Design specification
+## Design specification fields
 
-`spec_version` is `"0.1.0"`. `additionalProperties` is false at the schema root.
+Required root fields: `construct_id`, `designer` (`agent`, `human`), `chassis`, `intended_function`, `intended_bsl`, `not_for_synthesis`, `fragments[]` (`id`, `role`, `alphabet`, `sequence`). Additional properties **MUST NOT** appear at the schema root.
 
-Required fields:
+Enumerations match `schemas/design_spec.schema.json`. Sequences **MUST** match the declared alphabet. Notes, citations, and justification fields **MUST NOT** be added; they do not alter HOLD.
 
-- `construct_id`
-- `designer.agent`, `designer.human`
-- `chassis` ∈ `none | e_coli_k12 | e_coli_b | yeast | cell_free | other_bsl1 | other`
-- `intended_function` ∈ `reporter | housekeeping | metabolic | binding | nuclease | polymerase | reverse_transcriptase | programmable_nuclease_system | unknown`
-- `intended_bsl` ∈ `BSL-1 | BSL-2 | BSL-3 | unknown`
-- `not_for_synthesis` (boolean)
-- `fragments[]` each with `id`, `role`, `alphabet`, `sequence`
+## Censor (`bloc speccheck`)
 
-Roles: `cds | promoter | rbs | terminator | repeat_array | spacer | oligo | other`. Alphabets: `dna | rna | aa`. Sequence must match alphabet.
-
-No notes, citations, or justification fields. Justification does not clear HOLD.
-
-## Censor hard stops
-
-Refuse and stop when:
+`speccheck` **MUST** refuse the plan (exit `2`) when any of the following hold:
 
 - `intended_bsl` is `BSL-3`
 - `assembly.order_split` is `true`
-- extra JSON keys
+- unknown JSON keys
 - alphabet or sequence mismatch
-- stitched DNA longer than 50 kb (v0 cap)
-- an order, oligo print, or wet protocol would precede a `RELEASE` card
+- empty `fragments`
+- stitched DNA length above 50 kb (v0 cap)
+- synthesis, oligo printing, or wet work would occur before a `RELEASE` verdict exists
 
-`speccheck` failure exits `2`.
+## Suppressor (`bloc screen`)
 
-## Suppressor pipeline
+Pipeline order:
 
-1. Stitch fragments in listed order. Normalise (`U→T`, uppercase, no whitespace).
-2. Window the molecule (50 nt recorded; 30 nt oligo floor noted).
-3. Structural novelty gate (evenly spaced repeat array plus RT-plausible CDS, or declared programmable / reverse-transcriptase / unknown function).
-4. Run IBBIS `commec` locally when present.
-5. Reduce, with no votes:
+1. Stitch fragments in list order; normalise (`U→T`, uppercase, no whitespace).
+2. Window (50 nt recorded; 30 nt oligo floor for oligo roles).
+3. Structural novelty gate (repeat-array plus RT-plausible CDS, or declared `reverse_transcriptase`, `programmable_nuclease_system`, or `unknown` function).
+4. Local IBBIS `commec` when configured.
+5. Policy reduction (total order, no votes):
 
 ```
 commec missing or crashed     → Undefined / ESCALATE
@@ -70,52 +52,33 @@ ART-shaped pattern or
 else, and commec cleared      → No Flag / RELEASE
 ```
 
-`RELEASE` requires commec to have run and cleared. The agent cannot argue the frame into RELEASE.
+`RELEASE` **MUST NOT** be emitted unless `commec` completed and cleared. Integrations **MUST** branch on exit codes (`0` RELEASE, `10` HOLD, `20` ESCALATE, `2` error), not on card prose.
 
-Exit codes: `0` RELEASE, `10` HOLD, `20` ESCALATE, `2` schema or engine error. Branch on the code, not on card English.
+## Post-verdict behavior
 
-## After the card
-
-| Policy | Next act |
+| Policy | Requirement |
 |---|---|
-| `RELEASE` | May describe a BSL-1 build to a human. Do not perform laboratory work. |
-| `HOLD` | Stop. Direct the human to the design specification and commec JSON. Do not soften stated risk. |
-| `ESCALATE` | Provide a one-page brief: intended function, chassis, which gate fired, what a human could run at BSL-1 or BSL-2. Do not invent a pathogen name. |
+| `RELEASE` | Textual build guidance for BSL-1 intent is permitted; wet-laboratory execution **MUST NOT** be performed by the tool. |
+| `HOLD` | Further synthesis steps **MUST** stop; the human reviewer **MUST** receive the specification and commec output. |
+| `ESCALATE` | A concise review packet **SHOULD** be supplied: intended function, chassis, triggering gate, and feasible BSL-1 or BSL-2 options. Pathogen names **MUST NOT** be invented. |
 
-High-volume discovery must stream every specification through `bloc screen`. Retain all `RELEASE` cards. Retain at most twenty escalations for human review; additional escalations are logged and dropped from the human queue and are never treated as RELEASE.
+Batch discovery **MUST** screen every candidate. All `RELEASE` verdicts **MUST** be retained. At most twenty `ESCALATE` outcomes **MAY** be queued for human review; overflow is logged, excluded from the human queue, and **MUST NOT** be treated as `RELEASE`.
 
-## Hashes
+## Receipt identity
 
 - `spec_sha256` — SHA-256 of canonical JSON (sorted keys, no insignificant whitespace).
 - `fasta_sha256` — SHA-256 of normalised stitched FASTA.
 - `identity` — SHA-256 of `spec_sha256 || 0x1E || fasta_sha256`.
 
-Same plan and molecule → same identity on any machine. Timestamp is metadata beside the key. Duplicate submit → reuse row. One fragment change → new identity.
+Identical specification and molecule **MUST** yield the same `identity`. Timestamp and card text are metadata outside `identity`.
 
 ## Metadata routers
 
-A typed decision model may route a hash miss on metadata only: `rescreen | escalate | drop`. It must not see raw sequence and must not write `policy: RELEASE` to the ledger.
+After an `identity` miss, an optional router **MAY** choose `rescreen`, `escalate`, or `drop` using metadata only. Routers **MUST NOT** receive raw sequence and **MUST NOT** assign `policy: RELEASE`.
 
-## Prohibited
+## Out of scope for this repository
 
-- Invent a sequences-of-concern database.
-- Treat the agent as authority for RELEASE.
-- Upload customer or agent FASTA to third parties by default.
-- Emit a numeric risk score as the clinical object.
-- Clear HOLD via justification text.
-- Train or publish function models on restricted corpora from this repository.
-- Add evasion fixtures, commec bypass cases, or sequences of concern to git.
-- Perform laboratory work. BSL-1 and BSL-2 only; BSL-3 is out of scope.
-
-## Normative preamble
-
-The following aligns with `speccheck` and must govern design-agent behavior:
-
-```
-Emit design specification JSON only.
-Do not order, print oligos, or write wet protocols for HOLD or ESCALATE.
-Do not argue the suppressor into RELEASE.
-For ESCALATE, supply a one-page human brief:
-intended function, chassis, why the gate fired, feasible BSL-1 or BSL-2 options.
-Laboratory work is human. BSL-3 is out of scope.
-```
+- Customer or agent FASTA uploaded to third parties by default
+- Numeric risk scores as the primary decision object
+- Sequences-of-concern databases, evasion fixtures, or commec bypass tests in git
+- BSL-3 intent or laboratory execution by automated tools

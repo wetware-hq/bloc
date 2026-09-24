@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 #[derive(Parser)]
-#[command(name = "bloc", version = VERSION, about = "Censor + suppressor frame for designer sequences")]
+#[command(name = "bloc", version = VERSION, about = "Plan censor and molecule suppressor for nucleic-acid designs")]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
