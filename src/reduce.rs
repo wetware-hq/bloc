@@ -1,5 +1,5 @@
 use crate::pattern::PatternHit;
-use crate::spec::IntendedFunction;
+use crate::spec::{Bsl, IntendedFunction};
 use crate::verdict::{Policy, Reason, Rubric};
 
 pub struct EngineSignals {
@@ -8,6 +8,26 @@ pub struct EngineSignals {
     pub commec_flag: bool,
     pub pattern: PatternHit,
     pub intended: IntendedFunction,
+    pub intended_bsl: Bsl,
+    pub not_for_synthesis: bool,
+}
+
+impl Default for EngineSignals {
+    fn default() -> Self {
+        Self {
+            commec_required: false,
+            commec_ran: false,
+            commec_flag: false,
+            pattern: PatternHit {
+                repeat_array: false,
+                rt_like_cds: false,
+                programmable_system_shape: false,
+            },
+            intended: IntendedFunction::Reporter,
+            intended_bsl: Bsl::Bsl1,
+            not_for_synthesis: false,
+        }
+    }
 }
 
 pub fn reduce(sig: &EngineSignals) -> (Rubric, Policy, Vec<Reason>) {
@@ -53,6 +73,32 @@ pub fn reduce(sig: &EngineSignals) -> (Rubric, Policy, Vec<Reason>) {
             }],
         );
     }
+    if !matches!(sig.intended_bsl, Bsl::Bsl1) {
+        return (
+            Rubric::Undefined,
+            Policy::Escalate,
+            vec![Reason {
+                code: "bsl_not_bsl1".into(),
+                clause: "RELEASE requires declared BSL-1 intent".into(),
+                engine: "reduce".into(),
+                fragment_id: None,
+                detail: None,
+            }],
+        );
+    }
+    if sig.not_for_synthesis {
+        return (
+            Rubric::Undefined,
+            Policy::Escalate,
+            vec![Reason {
+                code: "not_for_synthesis".into(),
+                clause: "plan attests not for synthesis or ordering".into(),
+                engine: "reduce".into(),
+                fragment_id: None,
+                detail: None,
+            }],
+        );
+    }
     (
         Rubric::NoFlag,
         Policy::Release,
@@ -70,66 +116,87 @@ pub fn reduce(sig: &EngineSignals) -> (Rubric, Policy, Vec<Reason>) {
 mod tests {
     use super::*;
     use crate::pattern::PatternHit;
-    use crate::spec::IntendedFunction;
+    use crate::spec::{Bsl, IntendedFunction};
 
-    fn silent() -> PatternHit {
-        PatternHit {
-            repeat_array: false,
-            rt_like_cds: false,
-            programmable_system_shape: false,
+    fn release_ready() -> EngineSignals {
+        EngineSignals {
+            commec_required: true,
+            commec_ran: true,
+            commec_flag: false,
+            pattern: PatternHit {
+                repeat_array: false,
+                rt_like_cds: false,
+                programmable_system_shape: false,
+            },
+            intended: IntendedFunction::Reporter,
+            intended_bsl: Bsl::Bsl1,
+            not_for_synthesis: false,
         }
     }
 
     #[test]
     fn missing_commec_escalates() {
-        let (_, p, _) = reduce(&EngineSignals {
-            commec_required: true,
-            commec_ran: false,
-            commec_flag: false,
-            pattern: silent(),
-            intended: IntendedFunction::Reporter,
-        });
+        let mut sig = release_ready();
+        sig.commec_ran = false;
+        let (_, p, _) = reduce(&sig);
         assert_eq!(p, Policy::Escalate);
     }
 
     #[test]
     fn commec_flag_holds() {
-        let (r, p, _) = reduce(&EngineSignals {
-            commec_required: true,
-            commec_ran: true,
-            commec_flag: true,
-            pattern: silent(),
-            intended: IntendedFunction::Reporter,
-        });
+        let mut sig = release_ready();
+        sig.commec_flag = true;
+        let (r, p, _) = reduce(&sig);
         assert_eq!(r, Rubric::Flag);
         assert_eq!(p, Policy::Hold);
     }
 
     #[test]
     fn commec_clear_releases_reporter() {
-        let (_, p, _) = reduce(&EngineSignals {
-            commec_required: true,
-            commec_ran: true,
-            commec_flag: false,
-            pattern: silent(),
-            intended: IntendedFunction::Reporter,
-        });
+        let (_, p, _) = reduce(&release_ready());
         assert_eq!(p, Policy::Release);
     }
 
     #[test]
+    fn not_for_synthesis_escalates() {
+        let mut sig = release_ready();
+        sig.not_for_synthesis = true;
+        let (r, p, reasons) = reduce(&sig);
+        assert_eq!(r, Rubric::Undefined);
+        assert_eq!(p, Policy::Escalate);
+        assert_eq!(reasons[0].code, "not_for_synthesis");
+    }
+
+    #[test]
+    fn bsl2_escalates() {
+        let mut sig = release_ready();
+        sig.intended_bsl = Bsl::Bsl2;
+        let (r, p, reasons) = reduce(&sig);
+        assert_eq!(r, Rubric::Undefined);
+        assert_eq!(p, Policy::Escalate);
+        assert_eq!(reasons[0].code, "bsl_not_bsl1");
+    }
+
+    #[test]
+    fn bsl2_commec_flag_still_holds() {
+        let mut sig = release_ready();
+        sig.intended_bsl = Bsl::Bsl2;
+        sig.commec_flag = true;
+        let (r, p, _) = reduce(&sig);
+        assert_eq!(r, Rubric::Flag);
+        assert_eq!(p, Policy::Hold);
+    }
+
+    #[test]
     fn novelty_escalates_even_if_commec_cleared() {
-        let (r, p, _) = reduce(&EngineSignals {
-            commec_required: true,
-            commec_ran: true,
-            commec_flag: false,
-            pattern: PatternHit {
-                repeat_array: true,
-                rt_like_cds: true,
-                programmable_system_shape: true,
-            },
-            intended: IntendedFunction::ReverseTranscriptase,
-        });
+        let mut sig = release_ready();
+        sig.pattern = PatternHit {
+            repeat_array: true,
+            rt_like_cds: true,
+            programmable_system_shape: true,
+        };
+        sig.intended = IntendedFunction::ReverseTranscriptase;
+        let (r, p, _) = reduce(&sig);
         assert_eq!(r, Rubric::Undefined);
         assert_eq!(p, Policy::Escalate);
     }
