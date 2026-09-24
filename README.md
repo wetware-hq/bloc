@@ -1,6 +1,6 @@
 # bloc
 
-**System card.** bloc is a local gate that screens proposed nucleic-acid designs before synthesis or assembly. It accepts a structured design specification, not raw sequence files. The only object meant for human action is a short typed card. Tracking: [MCHU-63](https://linear.app/mchu001/issue/MCHU-63/bloc).
+**Overview.** bloc is a local gate that screens proposed nucleic-acid designs before synthesis or assembly. It accepts a structured design specification, not raw sequence files. The only object meant for human action is a short typed card.
 
 bloc evaluates whether a proposed construct may proceed toward ordering, assembly, or transformation under the stated biosafety level. One program performs plan review and molecule review. Policy is fixed by rule, not by upstream narrative.
 

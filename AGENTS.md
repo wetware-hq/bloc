@@ -1,10 +1,10 @@
-# Design agent integration
+# Host integration
 
-Normative requirements for automated design tools that participate in this repository. Wording uses RFC 2119: **MUST**, **MUST NOT**, **SHOULD**.
+Normative requirements for hosts that connect design tools to bloc. Wording uses RFC 2119: **MUST**, **MUST NOT**, **SHOULD**.
 
 ## Scope
 
-Design tools **MUST** emit [design specification](schemas/design_spec.schema.json) JSON (`spec_version` `0.1.0`) as the only sequence-bearing artifact toward synthesis. Raw FASTA, vendor carts, and wet-laboratory protocols **MUST NOT** bypass `bloc screen`. Release policy **MUST** come from `bloc screen`, not from the design tool.
+The screening path accepts only [design specification](schemas/design_spec.schema.json) JSON (`spec_version` `0.1.0`) as sequence-bearing input toward synthesis. Raw FASTA, vendor carts, and wet-laboratory protocols **MUST NOT** bypass `bloc screen`. Release policy **MUST** come from `bloc screen`, not from upstream tools.
 
 ## Interface
 
@@ -20,7 +20,7 @@ Hosts **MUST NOT** expose parallel paths (for example, writing `construct.fa` an
 
 Required root fields: `construct_id`, `designer` (`agent`, `human`), `chassis`, `intended_function`, `intended_bsl`, `not_for_synthesis`, `fragments[]` (`id`, `role`, `alphabet`, `sequence`). Additional properties **MUST NOT** appear at the schema root.
 
-Enumerations match `schemas/design_spec.schema.json`. Sequences **MUST** match the declared alphabet. Notes, citations, and justification fields **MUST NOT** be added; they do not alter HOLD.
+Enumerations match `schemas/design_spec.schema.json`. Sequences **MUST** match the declared alphabet. Unknown root keys are rejected at `speccheck`.
 
 ## Censor (`bloc speccheck`)
 
@@ -32,7 +32,6 @@ Enumerations match `schemas/design_spec.schema.json`. Sequences **MUST** match t
 - alphabet or sequence mismatch
 - empty `fragments`
 - stitched DNA length above 50 kb (v0 cap)
-- synthesis, oligo printing, or wet work would occur before a `RELEASE` verdict exists
 
 ## Suppressor (`bloc screen`)
 
@@ -53,16 +52,6 @@ else, and commec cleared      → No Flag / RELEASE
 ```
 
 `RELEASE` **MUST NOT** be emitted unless `commec` completed and cleared. Integrations **MUST** branch on exit codes (`0` RELEASE, `10` HOLD, `20` ESCALATE, `2` error), not on card prose.
-
-## Post-verdict behavior
-
-| Policy | Requirement |
-|---|---|
-| `RELEASE` | Textual build guidance for BSL-1 intent is permitted; wet-laboratory execution **MUST NOT** be performed by the tool. |
-| `HOLD` | Further synthesis steps **MUST** stop; the human reviewer **MUST** receive the specification and commec output. |
-| `ESCALATE` | A concise review packet **SHOULD** be supplied: intended function, chassis, triggering gate, and feasible BSL-1 or BSL-2 options. Pathogen names **MUST NOT** be invented. |
-
-Batch discovery **MUST** screen every candidate. All `RELEASE` verdicts **MUST** be retained. At most twenty `ESCALATE` outcomes **MAY** be queued for human review; overflow is logged, excluded from the human queue, and **MUST NOT** be treated as `RELEASE`.
 
 ## Receipt identity
 
