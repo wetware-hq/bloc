@@ -129,6 +129,8 @@ fn screen(
         commec_flag: commec_out.flag,
         pattern: pat.clone(),
         intended: spec.intended_function,
+        intended_bsl: spec.intended_bsl,
+        not_for_synthesis: spec.not_for_synthesis,
     });
 
     let verdict = Verdict {

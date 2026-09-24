@@ -99,6 +99,8 @@ pattern or RT/programmable
 else, commec cleared        → No Flag / RELEASE
 ```
 
+Declared BSL-2, unknown BSL, or `not_for_synthesis: true` yield Undefined / ESCALATE and do not print a synthesis clearance line.
+
 Additional engines may raise HOLD or ESCALATE in future versions. None may be the sole basis for RELEASE.
 
 ### Receipt

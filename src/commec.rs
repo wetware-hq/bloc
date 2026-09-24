@@ -216,6 +216,7 @@ mod tests {
                 programmable_system_shape: false,
             },
             intended: IntendedFunction::Reporter,
+            ..Default::default()
         });
         assert_eq!(p, Policy::Escalate);
     }
