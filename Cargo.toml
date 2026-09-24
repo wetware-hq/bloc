@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Local biosafety gate for nucleic-acid design specifications"
 license = "MIT"
-repository = "https://github.com/wetware-hq/bloc"
+repository = "https://github.com/wetwarehq/bloc"
 readme = "README.md"
 
 [[bin]]

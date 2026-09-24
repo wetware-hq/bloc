@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://wetware-hq.github.io/bloc/schemas/verdict.schema.json",
+  "$id": "https://wetwarehq.github.io/bloc/schemas/verdict.schema.json",
   "title": "Verdict",
   "description": "Typed screening outcome from bloc screen, including rubric, policy, engine traces, and content-addressed receipt.",
   "type": "object",

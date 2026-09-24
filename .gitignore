@@ -1,6 +1,5 @@
 target/
 *.verdict.json
 *.stitched.fa
-.bloc-write-probe
 *.swp
 .DS_Store
