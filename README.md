@@ -85,7 +85,7 @@ The censor fails closed before external databases run. It refuses BSL-3 intent, 
 
 The normaliser converts `U` to `T`, uppercases letters, concatenates fragments in list order, and records fifty-nucleotide windows (thirty-nucleotide minimum for oligo roles). `six_frame_aa` walks three forward frames only; `bloc screen` does not call it.
 
-The pattern gate is structural only. It fires on evenly spaced repeats (≥6 units, period 20–50 nt) together with a reverse-transcriptase-plausible coding sequence, or when intended function is `reverse_transcriptase`, `programmable_nuclease_system`, or `unknown`. It does not embed a pathogen list.
+The pattern gate is structural only. It fires on evenly spaced repeats (≥6 units, period 20–50 nt, which may begin at any offset in the stitch) together with a reverse-transcriptase-plausible coding sequence, or when intended function is `reverse_transcriptase`, `programmable_nuclease_system`, or `unknown`. It does not embed a pathogen list.
 
 The commec adapter invokes a local subprocess. An uncleared biorisk or regulated-taxonomy hit yields Flag and HOLD. Absence or failure yields Undefined and ESCALATE. RELEASE requires a completed commec run with clearance.
 

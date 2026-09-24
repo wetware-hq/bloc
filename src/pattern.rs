@@ -29,7 +29,7 @@ fn normalize_len(n: usize) -> usize {
 }
 
 fn even_repeats(seq: &str) -> bool {
-    // ≥6 units, period 20–50, same motif.
+    // ≥6 units, period 20–50, same motif; repeat may start at any phase alignment.
     if seq.len() < 120 {
         return false;
     }
@@ -38,20 +38,22 @@ fn even_repeats(seq: &str) -> bool {
         if seq.len() < unit * 6 {
             continue;
         }
-        let motif = &seq[..unit];
-        if motif.chars().all(|c| c == 'N' || c == 'A' || c == 'T' || c == 'G' || c == 'C') {
-            let mut hits = 0usize;
-            let mut i = 0usize;
-            while i + unit <= seq.len() {
-                if &seq[i..i + unit] == motif {
-                    hits += 1;
-                    i += unit;
-                } else {
-                    break;
+        for phase in 0..period {
+            let mut start = phase;
+            while start + unit <= seq.len() {
+                let motif = &seq[start..start + unit];
+                if motif.chars().all(|c| c == 'N' || c == 'A' || c == 'T' || c == 'G' || c == 'C') {
+                    let mut hits = 1usize;
+                    let mut i = start + unit;
+                    while i + unit <= seq.len() && &seq[i..i + unit] == motif {
+                        hits += 1;
+                        i += unit;
+                    }
+                    if hits >= 6 {
+                        return true;
+                    }
                 }
-            }
-            if hits >= 6 {
-                return true;
+                start += period;
             }
         }
     }
@@ -72,5 +74,21 @@ mod tests {
     #[test]
     fn random_short_silent() {
         assert!(!even_repeats("ATGAAACCCGGGTTT"));
+    }
+
+    #[test]
+    fn array_after_leader_fires() {
+        let leader = "ATGAAACCCGGGTTT".repeat(3); // 45 nt (>40 nt non-repeating prefix)
+        let unit = "AAAAAAAAAAAAAAAAAAAA";
+        let tail = unit.repeat(8);
+        let seq = format!("{leader}{tail}");
+        assert!(even_repeats(&seq));
+    }
+
+    #[test]
+    fn five_units_silent() {
+        let unit = "AAAAAAAAAAAAAAAAAAAA";
+        let seq = unit.repeat(5);
+        assert!(!even_repeats(&seq));
     }
 }
