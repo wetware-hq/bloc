@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wetware-hq.github.io/bloc/schemas/verdict.schema.json",
+  "title": "Verdict",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "verdict_version",
+    "construct_id",
+    "rubric",
+    "policy",
+    "reasons",
+    "engines",
+    "receipt"
+  ],
+  "properties": {
+    "verdict_version": { "const": "0.1.0" },
+    "construct_id": { "type": "string" },
+    "rubric": { "enum": ["No Flag", "Flag", "Undefined"] },
+    "policy": { "enum": ["RELEASE", "HOLD", "ESCALATE"] },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "clause", "engine"],
+        "properties": {
+          "code": { "type": "string" },
+          "clause": { "type": "string" },
+          "engine": { "type": "string" },
+          "fragment_id": { "type": "string" },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "engines": { "type": "object" },
+    "receipt": {
+      "type": "object",
+      "required": [
+        "spec_sha256",
+        "fasta_sha256",
+        "identity",
+        "inhibit_version",
+        "engine_revs",
+        "utc"
+      ],
+      "properties": {
+        "spec_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "fasta_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "identity": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "inhibit_version": { "type": "string" },
+        "engine_revs": { "type": "object" },
+        "utc": { "type": "string" }
+      }
+    }
+  }
+}

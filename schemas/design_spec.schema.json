@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wetware-hq.github.io/bloc/schemas/design_spec.schema.json",
+  "title": "Design specification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "spec_version",
+    "construct_id",
+    "designer",
+    "chassis",
+    "intended_function",
+    "intended_bsl",
+    "not_for_synthesis",
+    "fragments"
+  ],
+  "properties": {
+    "spec_version": { "const": "0.1.0" },
+    "construct_id": { "type": "string", "minLength": 1 },
+    "designer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent", "human"],
+      "properties": {
+        "agent": { "type": "string" },
+        "model": { "type": "string" },
+        "human": { "type": "string" },
+        "session_id": { "type": "string" }
+      }
+    },
+    "chassis": {
+      "enum": ["none", "e_coli_k12", "e_coli_b", "yeast", "cell_free", "other_bsl1", "other"]
+    },
+    "intended_function": {
+      "enum": [
+        "reporter",
+        "housekeeping",
+        "metabolic",
+        "binding",
+        "nuclease",
+        "polymerase",
+        "reverse_transcriptase",
+        "programmable_nuclease_system",
+        "unknown"
+      ]
+    },
+    "intended_bsl": { "enum": ["BSL-1", "BSL-2", "BSL-3", "unknown"] },
+    "not_for_synthesis": { "type": "boolean" },
+    "fragments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "role", "alphabet", "sequence"],
+        "properties": {
+          "id": { "type": "string" },
+          "role": {
+            "enum": ["cds", "promoter", "rbs", "terminator", "repeat_array", "spacer", "oligo", "other"]
+          },
+          "alphabet": { "enum": ["dna", "rna", "aa"] },
+          "sequence": { "type": "string", "minLength": 1 },
+          "coords": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["start", "end"],
+            "properties": {
+              "start": { "type": "integer", "minimum": 0 },
+              "end": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "assembly": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strategy": { "type": "string" },
+        "order_split": { "type": "boolean" }
+      }
+    }
+  }
+}
