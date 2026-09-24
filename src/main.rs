@@ -112,10 +112,14 @@ fn screen(
     let fasta_sha = fasta_hash(&fasta);
     let id = identity_key(&spec_sha, &fasta_sha);
 
-    let tmp = std::env::temp_dir().join(format!("{}.stitched.fa", spec.construct_id));
-    fs::write(&tmp, &fasta).map_err(|e| e.to_string())?;
-    let commec_out = commec::run(commec_db, commec_bin, &tmp);
-    let _ = fs::remove_file(&tmp);
+    let work_fasta = commec_work_fasta_path(&id);
+    let work_dir = work_fasta.parent().expect("work fasta has parent");
+    if work_dir.exists() {
+        fs::remove_dir_all(work_dir).map_err(|e| e.to_string())?;
+    }
+    fs::create_dir(work_dir).map_err(|e| e.to_string())?;
+    fs::write(&work_fasta, &fasta).map_err(|e| e.to_string())?;
+    let commec_out = commec::run(commec_db, commec_bin, &work_fasta);
 
     let pat = pattern::detect(&spec, &seq);
     let commec_required = true;
@@ -151,9 +155,53 @@ fn screen(
         },
     };
 
+    let _ = fs::remove_dir_all(work_dir);
+
     let dest = out
         .map(PathBuf::from)
         .unwrap_or_else(|| spec_path.with_extension("verdict.json"));
     fs::write(&dest, serde_json::to_vec_pretty(&verdict).unwrap()).map_err(|e| e.to_string())?;
     Ok(verdict)
+}
+
+/// Private commec work directory: `temp_dir()/bloc-{identity}/construct.fa`.
+fn commec_work_fasta_path(identity: &str) -> PathBuf {
+    std::env::temp_dir()
+        .join(format!("bloc-{identity}"))
+        .join("construct.fa")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn commec_work_path_uses_identity_not_construct_id() {
+        let identity = "a".repeat(64);
+        let path = commec_work_fasta_path(&identity);
+        let path_str = path.to_string_lossy();
+        let dir_name = path
+            .parent()
+            .expect("parent")
+            .file_name()
+            .expect("dir name")
+            .to_string_lossy();
+        assert!(
+            dir_name.starts_with("bloc-"),
+            "directory must be bloc-<identity>, got {dir_name}"
+        );
+        let hex_part = dir_name.strip_prefix("bloc-").expect("bloc- prefix");
+        assert_eq!(hex_part.len(), 64, "identity segment must be 64 hex chars");
+        assert!(
+            hex_part.chars().all(|c| c.is_ascii_hexdigit()),
+            "identity segment must be hex"
+        );
+        assert_eq!(path.file_name().unwrap().to_string_lossy(), "construct.fa");
+
+        let malicious_id = "../../etc/passwd";
+        assert!(
+            !path_str.contains(malicious_id),
+            "construct_id must not appear in commec work path: {path_str}"
+        );
+    }
 }
