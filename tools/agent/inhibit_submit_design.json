@@ -1,6 +1,6 @@
 {
   "name": "inhibit_submit_design",
-  "description": "Submit a design specification to bloc. Do not emit raw FASTA. The frame returns RELEASE, HOLD, or ESCALATE.",
+  "description": "Run bloc screen on a design specification JSON file. Returns RELEASE, HOLD, or ESCALATE.",
   "parameters": {
     "type": "object",
     "additionalProperties": false,
