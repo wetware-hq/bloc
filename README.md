@@ -1,16 +1,16 @@
 # bloc
 
-**System card.** Local inhibitory frame for agent-designed nucleic-acid sequences. Wetware issue [MCHU-63](https://linear.app/mchu001/issue/MCHU-63/bloc).
+**System card.** bloc is a local gate that screens agent-proposed nucleic-acid designs before synthesis or assembly. It accepts a structured design specification, not raw sequence files. The only object meant for human action is a short typed card. Tracking: [MCHU-63](https://linear.app/mchu001/issue/MCHU-63/bloc).
 
-bloc blocks a designer sequence that may pose a biosecurity risk before anyone synthesises it. One process exposes two faces. A typed card is the only object a human has to act on.
+bloc evaluates whether a proposed construct may proceed toward ordering, assembly, or transformation under the stated biosafety level. One program performs plan review and molecule review. Policy is fixed by rule, not by narrative from the design tool.
 
 ---
 
 ## Clinical abstract
 
-Frontier models now propose enzymes and constructs by reading genomic neighborhoods at swarm scale. The physical chokepoint is still a tube, a vendor cart, or a bench protocol. bloc is the local gate on that chokepoint.
+Automated design tools can now propose genetic constructs quickly. The practical control point remains the moment someone orders DNA, assembles a plasmid, or introduces material into cells. bloc sits at that control point on a local machine.
 
-A clinician or session host does not read a model essay. They read one card of seven lines or fewer.
+The session host or biosafety officer does not read a long model explanation. They read one card of seven lines or fewer:
 
 ```
 BLOC     construct_id=…
@@ -22,25 +22,25 @@ next:    named human, or none
 receipt: content-addressed identity
 ```
 
-Three outcomes, in the language already used by sequence-biosecurity standards:
+Three outcomes, aligned with sequence-biosecurity practice:
 
-| Rubric | Policy | Tube or vendor | Human |
+| Rubric | Policy | Synthesis or assembly | Human review |
 |---|---|---|---|
-| No Flag | RELEASE | allowed at BSL-1 intent | not required |
-| Flag | HOLD | forbidden | only to honour a pre-issued exemption |
+| No Flag | RELEASE | permitted at declared BSL-1 intent | not required |
+| Flag | HOLD | forbidden | required unless a prior exemption applies |
 | Undefined | ESCALATE | forbidden | required |
 
-Undefined is the expected path for a novel neighborhood, for example a repeat array beside an odd polymerase or reverse transcriptase. It is not a software failure. It is the request for a person.
+Undefined is the expected outcome when structure or declared function is novel—for example, a regular repeat array adjacent to a reverse-transcriptase-like coding region. It is not a software crash. It is a request for qualified review.
 
-This card is not a diagnosis, a pathogen name, a risk percentage, or permission to handle BSL-3 work. Laboratory work stays human. The model does not pipette. If the local screening engine is missing, the card is ESCALATE. Silence is not clearance.
+The card is not a clinical diagnosis, a pathogen identification, a quantitative risk score, or authorization for BSL-3 work. Wet-laboratory steps remain human responsibilities. If the local commec screen does not run, the policy is ESCALATE. Absence of a warning is not clearance.
 
 ---
 
 ## Intended use
 
-Use bloc to bind a design agent so that a sequence cannot move toward synthesis without a typed verdict. Use it to screen a design specification on a laptop at a Wetware session before anyone talks about ordering oligos. Use the receipt so that the same construct is the same decision later.
+Use bloc to require a typed verdict before a designed sequence moves toward synthesis. Use it to screen a design specification on a laptop during a Wetware session. Use the receipt so an identical plan and molecule receive the same decision later.
 
-Do not use bloc to replace IBBIS, SBRC, SecureDNA, or a commercial synthesis provider’s compliance stack. Do not use it as a customer-identity product, a hosted FASTA upload, or a training set for function models on restricted corpora.
+Do not use bloc to replace IBBIS, SBRC, SecureDNA, or a commercial provider’s compliance program. Do not use it for customer identity, hosted sequence upload, or training predictive models on restricted corpora.
 
 ---
 
@@ -48,11 +48,11 @@ Do not use bloc to replace IBBIS, SBRC, SecureDNA, or a commercial synthesis pro
 
 ### System model
 
-A design agent emits a design specification only. The censor inspects that plan. The suppressor inspects the stitched molecule. The reducer writes a verdict. The card and the receipt are the only user-facing objects.
+A design agent emits a design specification only. The censor (`speccheck`) validates the plan. The suppressor (`screen`) evaluates the stitched molecule. A reducer assigns rubric and policy. The card and receipt are the user-facing outputs.
 
 ```
 design agent
-    │  design specification only
+    │  design specification (JSON)
     ▼
 CENSOR   bloc speccheck     refuse plan (exit 2)
     │
@@ -69,25 +69,25 @@ Verdict + card + receipt
 RELEASE | HOLD | ESCALATE     exits 0 / 10 / 20
 ```
 
-Rust is the containing frame. Censor and suppressor are two subcommands of one binary. IBBIS commec is borrowed muscle. It does not own policy. A language model does not own policy.
+The implementation is a single Rust binary with two subcommands. IBBIS commec supplies local homology and regulated-taxonomy screening; it does not set release policy. Automated design tools do not set release policy.
 
 ### Inputs and outputs
 
-The input is a design specification as JSON, version `0.1.0`. Unknown keys are forbidden. The required fields are construct identity, designer (agent and human), chassis, intended function, intended BSL, a not-for-synthesis flag, and fragments that each carry a role, an alphabet, and a sequence.
+Input is design specification JSON at `spec_version` `0.1.0`. Unknown keys are rejected. Required fields: construct identifier, designer (agent and human), chassis, intended function, intended BSL, `not_for_synthesis`, and fragments each with role, alphabet, and sequence.
 
-The output is a Verdict JSON object and a card of seven lines or fewer. The first line of action is the policy word. The physical line is either `do not order / assemble / transform` or `cleared for BSL-1 construct build`.
+Output is a Verdict JSON object and a card of at most seven lines. The policy word is authoritative; the physical line is either `do not order / assemble / transform` or `cleared for BSL-1 construct build`.
 
 ### Censor predicates
 
-The frame fails closed before any database is touched. It refuses BSL-3, `order_split: true`, extra fields, alphabet or sequence mismatch, an empty fragment list, and stitched DNA above the fifty-kilobase v0 cap.
+The censor fails closed before external databases run. It refuses BSL-3 intent, `assembly.order_split: true`, extra JSON fields, alphabet or sequence mismatch, an empty fragment list, and stitched DNA above the fifty-kilobase v0 cap.
 
 ### Suppressor engines
 
-The normaliser rewrites `U` to `T`, uppercases the letters, concatenates fragments in listed order, records fifty-nucleotide windows with a thirty-nucleotide oligo floor, and makes a six-frame translation available to adapters.
+The normaliser converts `U` to `T`, uppercases letters, concatenates fragments in list order, records fifty-nucleotide windows (thirty-nucleotide minimum for oligo roles), and exposes six-frame translation to adapters.
 
-The pattern gate is structural only. It fires on evenly spaced repeats of at least six units with period twenty to fifty nucleotides plus an RT-plausible coding sequence, or on a declared function in the set `{reverse_transcriptase, programmable_nuclease_system, unknown}`. It contains no pathogen table.
+The pattern gate is structural only. It fires on evenly spaced repeats (≥6 units, period 20–50 nt) together with a reverse-transcriptase-plausible coding sequence, or when intended function is `reverse_transcriptase`, `programmable_nuclease_system`, or `unknown`. It does not embed a pathogen list.
 
-The commec adapter is a local subprocess. An uncleared biorisk or regulated-taxonomy hit becomes Flag and HOLD. A crash or absence becomes Undefined and ESCALATE. RELEASE is illegal unless commec ran and cleared.
+The commec adapter invokes a local subprocess. An uncleared biorisk or regulated-taxonomy hit yields Flag and HOLD. Absence or failure yields Undefined and ESCALATE. RELEASE requires a completed commec run with clearance.
 
 ### Policy reducer
 
@@ -96,14 +96,12 @@ engine unavailable          → Undefined / ESCALATE
 commec uncleared hit        → Flag / HOLD
 pattern or RT/programmable
   / unknown function        → Undefined / ESCALATE
-else                        → No Flag / RELEASE
+else, commec cleared        → No Flag / RELEASE
 ```
 
-Later optional engines may raise HOLD or ESCALATE. None of them may be the sole author of RELEASE.
+Additional engines may raise HOLD or ESCALATE in future versions. None may be the sole basis for RELEASE.
 
 ### Receipt
-
-SHA-256 is deterministic on bytes. The ledger key is therefore only stable if those bytes are frozen.
 
 ```
 spec_sha256  = SHA-256(canonical JSON)
@@ -111,11 +109,11 @@ fasta_sha256 = SHA-256(normalised stitched FASTA)
 identity     = SHA-256(spec_sha256 || 0x1E || fasta_sha256)
 ```
 
-Canonical JSON means sorted keys and no insignificant whitespace. The timestamp and the card sit beside that identity. They are not mixed into it, or yesterday’s screen and today’s identical rescreen become two keys. An identical submit is the same row. One codon changed is a new row. Pretty construct identifiers are not keys.
+Canonical JSON uses sorted keys and no insignificant whitespace. Timestamp and card text sit beside `identity`, not inside it. Identical submissions reuse the same ledger row; one changed codon yields a new row.
 
-### Fast path after the first screen
+### Repeat screening
 
-An exact identity hit is System 0: reuse the stored verdict. No model is consulted. A typed System One decision model, for example Jev using Choice, Score, or Noul, may route a hash miss on metadata only, choosing `rescreen`, `escalate`, or `drop`. It must not receive raw sequence and must not mint RELEASE. A generative model may write the ESCALATE brief. It may not write the policy field.
+An exact `identity` match reuses the stored verdict without re-invoking design tools. On a miss, an optional metadata-only router may choose `rescreen`, `escalate`, or `drop`; it must not receive raw sequence and must not assign RELEASE. A generative tool may draft the ESCALATE brief; it must not set policy.
 
 ### Commands
 
@@ -133,26 +131,26 @@ cargo run -- screen    fixtures/benign/gfp_spec.json
 cargo run -- screen    fixtures/synthetic/art_shape_spec.json
 ```
 
-Exit codes are `0` for RELEASE, `10` for HOLD, `20` for ESCALATE, and `2` for a schema or engine error. Branch on the code, not on the card’s English.
+Exit codes: `0` RELEASE, `10` HOLD, `20` ESCALATE, `2` schema or engine error. Integrations should branch on the numeric code, not on card wording.
 
 ### Failure and misuse
 
-If commec is absent, the card is ESCALATE and never RELEASE. If an agent adds justification keys, speccheck refuses the plan. If an agent splits an order across vendors, the censor hard-fails. If a novel ART-like shape is silent in commec, the card is ESCALATE. If a host gives the model a raw FASTA shell, that is a protocol violation; see AGENTS.md. Default upload of FASTA to a third party is forbidden.
+Without commec, policy is ESCALATE, never RELEASE. Justification fields in the specification cause `speccheck` to refuse the plan. Order splitting across vendors is refused at the censor. A novel ART-like shape that commec does not flag still yields ESCALATE. Emitting raw FASTA outside the specification channel is a host integration error; see `AGENTS.md`.
 
-Public fixtures in this repository are benign or purely structural. Sequences of concern from SBRC or NIST proficiency sets are licensed to organisations and are not vendored here.
+Repository fixtures are benign or purely structural. Licensed sequences-of-concern from proficiency sets are not vendored here.
 
 ---
 
 ## Operators
 
-A clinician or session host reads the card. If the policy is HOLD or ESCALATE, nothing is ordered or transformed. If the policy is RELEASE, a BSL-1 build remains a human act.
+**Clinician or session host:** Read the card. For HOLD or ESCALATE, do not order or transform material. For RELEASE, any BSL-1 build remains a deliberate human act.
 
-An engineer does not add a risk score, an LLM judge, a new threat database, or Python on the thirty-mer path. Consume commec. Speak Flag, No Flag, or Undefined. Keep the frame fail-closed.
+**Engineer:** Do not add numeric risk scores, model-based judges, proprietary threat lists, or Python on the thirty-mer path. Consume commec output; emit Flag, No Flag, or Undefined. Preserve fail-closed behavior.
 
-A frontier model reads AGENTS.md and emits a design specification only.
+**Design agent:** Follow `AGENTS.md` and emit specification JSON only.
 
 ---
 
 ## Status
 
-This is the v0.1 frame specification and CLI contract. License is MIT. No sequences of concern are in git. Wet laboratory work is out of process.
+v0.1 frame specification and CLI contract. License: MIT. No sequences of concern in this repository. Wet-laboratory execution is out of process.

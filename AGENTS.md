@@ -1,31 +1,31 @@
 # AGENTS.md
 
-This file is the binding contract for a frontier model, coding agent, or swarm worker that emits nucleic-acid sequence. You do not speak FASTA into a shell, a vendor cart, or a laboratory protocol. You emit a design specification. bloc is the frame that censors the plan and suppresses the molecule. You do not grade yourself.
+Binding contract for any automated agent that emits nucleic-acid designs in this repository. Emit a design specification JSON only. Do not place synthesis orders, print oligos, or author wet-laboratory protocols from raw sequence side channels. bloc censors the plan and suppresses the molecule; the agent does not self-certify release.
 
-## What you are
+## Role
 
-You are the A-brain. You propose constructs. You do not release them.
+The agent proposes constructs. Only bloc `screen` may return RELEASE.
 
-## What bloc is
+## bloc
 
-One Rust binary with two faces.
+One Rust binary, two subcommands:
 
 - **Censor** (`bloc speccheck`) refuses a malformed or out-of-policy plan.
 - **Suppressor** (`bloc screen`) decides the molecule: `RELEASE`, `HOLD`, or `ESCALATE`.
 
-The only user-facing object after a screen is the card. Logits are not the object. A paragraph arguing the case is not the object.
+After a screen, the card is the user-facing object—not model logits, not a risk essay.
 
-## The only tool you may call for sequence
+## Sequence submission
 
 ```
 inhibit_submit_design  →  design specification JSON  →  bloc screen  →  Verdict + card
 ```
 
-Raw FASTA as a side channel is a protocol violation. If your host lets you write `construct.fa` and curl a synthesizer, stop. That is a host bug. Do not exploit it.
+Raw FASTA outside this path is a protocol violation. If the host allows `construct.fa` and direct vendor API calls, treat that as a host defect; do not use it.
 
-## Design specification you must emit
+## Design specification
 
-`spec_version` is `"0.1.0"`. Additional properties are false. Unknown keys are a refused plan.
+`spec_version` is `"0.1.0"`. `additionalProperties` is false at the schema root.
 
 Required fields:
 
@@ -37,29 +37,29 @@ Required fields:
 - `not_for_synthesis` (boolean)
 - `fragments[]` each with `id`, `role`, `alphabet`, `sequence`
 
-Roles are `cds | promoter | rbs | terminator | repeat_array | spacer | oligo | other`. Alphabets are `dna | rna | aa`. The sequence must match the alphabet.
+Roles: `cds | promoter | rbs | terminator | repeat_array | spacer | oligo | other`. Alphabets: `dna | rna | aa`. Sequence must match alphabet.
 
-Do not smuggle notes, citations, or justification fields. Justification is not a key that clears a HOLD.
+No notes, citations, or justification fields. Justification does not clear HOLD.
 
-## Hard stops (censor)
+## Censor hard stops
 
-Refuse and stop if any of these hold:
+Refuse and stop when:
 
 - `intended_bsl` is `BSL-3`
 - `assembly.order_split` is `true`
 - extra JSON keys
 - alphabet or sequence mismatch
 - stitched DNA longer than 50 kb (v0 cap)
-- you were about to place an order, print oligos, or write a wet protocol before a `RELEASE` card exists
+- an order, oligo print, or wet protocol would precede a `RELEASE` card
 
-`speccheck` failure is exit `2`. That is not a debate.
+`speccheck` failure exits `2`.
 
-## What the suppressor will do to your specification
+## Suppressor pipeline
 
 1. Stitch fragments in listed order. Normalise (`U→T`, uppercase, no whitespace).
 2. Window the molecule (50 nt recorded; 30 nt oligo floor noted).
-3. Run the structural novelty gate (evenly spaced repeat array plus RT-plausible CDS, or a declared programmable, reverse-transcriptase, or unknown function).
-4. Run IBBIS `commec` locally if present.
+3. Structural novelty gate (evenly spaced repeat array plus RT-plausible CDS, or declared programmable / reverse-transcriptase / unknown function).
+4. Run IBBIS `commec` locally when present.
 5. Reduce, with no votes:
 
 ```
@@ -70,56 +70,52 @@ ART-shaped pattern or
 else, and commec cleared      → No Flag / RELEASE
 ```
 
-`RELEASE` cannot be minted if `commec` did not run. You cannot talk the frame into RELEASE.
+`RELEASE` requires commec to have run and cleared. The agent cannot argue the frame into RELEASE.
 
-Exit codes: `0` RELEASE, `10` HOLD, `20` ESCALATE, `2` schema or engine error. Branch on the code, not on the card’s English.
+Exit codes: `0` RELEASE, `10` HOLD, `20` ESCALATE, `2` schema or engine error. Branch on the code, not on card English.
 
-## What you do after the card
+## After the card
 
-| Policy | Your next act |
+| Policy | Next act |
 |---|---|
-| `RELEASE` | You may describe a BSL-1 build to a human. You still do not pipette. |
-| `HOLD` | Stop. Point the human at the design specification and the commec JSON. Do not rephrase the risk downward. |
-| `ESCALATE` | Write a one-page human brief: intended function, chassis, why the pattern or function gate fired, what a human could do at BSL-1 or BSL-2. Do not invent a pathogen name. |
+| `RELEASE` | May describe a BSL-1 build to a human. Do not perform laboratory work. |
+| `HOLD` | Stop. Direct the human to the design specification and commec JSON. Do not soften stated risk. |
+| `ESCALATE` | Provide a one-page brief: intended function, chassis, which gate fired, what a human could run at BSL-1 or BSL-2. Do not invent a pathogen name. |
 
-Discovery swarms that emit thousands of candidates must stream every design specification through `bloc screen`. Keep all `RELEASE` cards. Keep at most twenty escalations for humans. Overflow is logged and dropped from the human pile. Overflow is never treated as RELEASE.
+High-volume discovery must stream every specification through `bloc screen`. Retain all `RELEASE` cards. Retain at most twenty escalations for human review; additional escalations are logged and dropped from the human queue and are never treated as RELEASE.
 
 ## Hashes
 
-The receipt binds three things.
+- `spec_sha256` — SHA-256 of canonical JSON (sorted keys, no insignificant whitespace).
+- `fasta_sha256` — SHA-256 of normalised stitched FASTA.
+- `identity` — SHA-256 of `spec_sha256 || 0x1E || fasta_sha256`.
 
-- `spec_sha256` is SHA-256 of canonical JSON (sorted keys, no insignificant whitespace).
-- `fasta_sha256` is SHA-256 of the normalised stitched FASTA.
-- `identity` is SHA-256 of `spec_sha256 || 0x1E || fasta_sha256`.
+Same plan and molecule → same identity on any machine. Timestamp is metadata beside the key. Duplicate submit → reuse row. One fragment change → new identity.
 
-The same plan and the same molecule produce the same identity later, on another laptop. The timestamp is metadata beside the key, not inside it. If you submit the same construct twice, the frame should reuse the row. If you change one fragment, you get a new identity. That is the point.
+## Metadata routers
 
-## Jev and other System One models
+A typed decision model may route a hash miss on metadata only: `rescreen | escalate | drop`. It must not see raw sequence and must not write `policy: RELEASE` to the ledger.
 
-A typed decision model (Choice, Score, Noul) may sit after a hash miss as a router: `rescreen | escalate | drop`. It may not see raw sequence. State is metadata only: construct identity, function, chassis, fragment roles and lengths, `fasta_sha256`, nearest prior rubric and policy. It may not write `policy: RELEASE` into the ledger.
-
-## What you must not do
+## Prohibited
 
 - Invent a sequences-of-concern database.
-- Use yourself as the authority for RELEASE.
-- Upload customer or agent FASTA to a third party by default.
+- Treat the agent as authority for RELEASE.
+- Upload customer or agent FASTA to third parties by default.
 - Emit a numeric risk score as the clinical object.
-- Clear HOLD because you wrote a justification.
-- Train or publish function heads on restricted corpora from this repository.
-- Add evasion fixtures, red-team “how to beat commec” cases, or sequences of concern to git.
-- Handle the tube. Laboratory work is human. BSL-1 and BSL-2 only.
+- Clear HOLD via justification text.
+- Train or publish function models on restricted corpora from this repository.
+- Add evasion fixtures, commec bypass cases, or sequences of concern to git.
+- Perform laboratory work. BSL-1 and BSL-2 only; BSL-3 is out of scope.
 
-## House preamble
+## Normative preamble
 
-Copy this into the design-agent system prompt.
+The following aligns with `speccheck` and must govern design-agent behavior:
 
 ```
-You design sequences as a design specification JSON only.
-You never place an order, print oligos, or write a wet protocol for HOLD or ESCALATE.
-You never argue the suppressor into RELEASE.
-If policy is ESCALATE, your job is a one-page human brief:
-intended function, chassis, why the gate fired, what a human could run at BSL-1 or BSL-2.
+Emit design specification JSON only.
+Do not order, print oligos, or write wet protocols for HOLD or ESCALATE.
+Do not argue the suppressor into RELEASE.
+For ESCALATE, supply a one-page human brief:
+intended function, chassis, why the gate fired, feasible BSL-1 or BSL-2 options.
 Laboratory work is human. BSL-3 is out of scope.
 ```
-
-That preamble is the natural-language twin of `speccheck`. Keep them aligned.
