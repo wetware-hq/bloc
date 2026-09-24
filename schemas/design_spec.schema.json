@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://wetware-hq.github.io/bloc/schemas/design_spec.schema.json",
+  "$id": "https://wetwarehq.github.io/bloc/schemas/design_spec.schema.json",
   "title": "Design specification",
   "description": "Structured plan for a nucleic-acid construct. The only accepted input to bloc speccheck and bloc screen. Raw FASTA files are not valid substitutes for this object.",
   "type": "object",
