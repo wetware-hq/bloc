@@ -1,0 +1,20 @@
+{
+  "spec_version": "0.1.0",
+  "construct_id": "gfp-benign-00",
+  "designer": {
+    "agent": "none",
+    "human": "wetware"
+  },
+  "chassis": "e_coli_k12",
+  "intended_function": "reporter",
+  "intended_bsl": "BSL-1",
+  "not_for_synthesis": true,
+  "fragments": [
+    {
+      "id": "cds1",
+      "role": "cds",
+      "alphabet": "dna",
+      "sequence": "ATGCGTAAAGGAGAAGAACTTTTCACTGGAGTTGTCCCAATTCTTGTTGAATTAGATGGTGATGTTAATGGGCAC"
+    }
+  ]
+}

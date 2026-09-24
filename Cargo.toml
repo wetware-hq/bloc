@@ -1,0 +1,20 @@
+[package]
+name = "bloc"
+version = "0.1.0"
+edition = "2021"
+description = "Local inhibitory frame for agent-designed nucleic-acid sequences"
+license = "MIT"
+repository = "https://github.com/wetware-hq/bloc"
+readme = "README.md"
+
+[[bin]]
+name = "bloc"
+path = "src/main.rs"
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
